@@ -1,11 +1,21 @@
 {
-  "name": "projet_final",
+  "name": "catalogue-films",
   "version": "1.0.0",
-  "description": "Projet final avec front-end et back-end",
+  "description": "Catalogue interactif de films avec filtrage avancé",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "init-db": "node initDB.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [
+    "films",
+    "catalogue",
+    "express",
+    "sqlite"
+  ],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
     "body-parser": "^1.20.3",
     "express": "^4.21.2",

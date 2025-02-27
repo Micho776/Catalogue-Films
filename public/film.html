@@ -29,6 +29,7 @@
       <select id="filmTypeSelect">
         <option value="all">Tous les films</option>
         <option value="classics">Les classiques</option>
+        <option value="standard">Standard</option>
         <option value="navets">Les navets</option>
       </select>
     </div>
@@ -38,12 +39,12 @@
       <input
         type="range"
         id="classicThreshold"
-        value="4.2"
+        value="4.0"
         min="0"
         max="5"
         step="0.1"
       />
-      <span id="classicValue">4.2</span>
+      <span id="classicValue">4.0</span>
 
       <label for="navetThreshold">🍅 Seuil Navet :</label>
       <input
@@ -57,7 +58,9 @@
       <span id="navetValue">2.0</span>
     </div>
 
-    <button id="importButton">🎬 Charger les Films</button>
+    <button id="importButton">
+      🎬 Appliquer les filtres et charger les films
+    </button>
 
     <div class="films-container" id="filmsContainer">
       <!-- Film cards will be dynamically inserted here -->
@@ -89,6 +92,15 @@
       <label for="compagnie">Compagnie:</label>
       <input type="text" id="compagnie" name="compagnie" required />
 
+      <label for="origine">Origine:</label>
+      <select id="origine" name="origine">
+        <option value="France">France</option>
+        <option value="Angleterre">Angleterre</option>
+        <option value="Belgique">Belgique</option>
+        <option value="Pays-Bas">Pays-Bas</option>
+        <option value="Autre">Autre</option>
+      </select>
+
       <label for="description">Description:</label>
       <textarea id="description" name="description"></textarea>
 
@@ -102,13 +114,21 @@
     <script>
       function supprimerFilm(id) {
         fetch(`/film/${id}`, { method: "DELETE" })
-          .then((response) => response.json())
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+          })
           .then((data) => {
             console.log("Film supprimé :", data);
-            // Refresh the films display
-            importFilms();
+            // Refresh the films display by clicking the import button
+            document.getElementById("importButton").click();
           })
-          .catch((error) => console.error("Erreur de suppression :", error));
+          .catch((error) => {
+            console.error("Erreur de suppression :", error);
+            // Don't show the error to the user, just log it to console
+          });
       }
     </script>
 

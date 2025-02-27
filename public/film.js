@@ -14,39 +14,42 @@ document.addEventListener("DOMContentLoaded", function () {
     let filmsData = [];
     let filteredFilms = [];
 
+    // Mise à jour des valeurs affichées pour les seuils
+    classicThresholdInput.addEventListener("input", function() {
+        classicValue.textContent = this.value;
+    });
+    
+    navetThresholdInput.addEventListener("input", function() {
+        navetValue.textContent = this.value;
+    });
+    
+    // Initialiser les valeurs affichées
+    classicValue.textContent = classicThresholdInput.value;
+    navetValue.textContent = navetThresholdInput.value;
+
     // Fonction pour mettre à jour l'affichage des films
     function updateFilmDisplay() {
         filmsContainer.innerHTML = "";
+        
+        if (filteredFilms.length === 0) {
+            filmsContainer.innerHTML = "<p class='no-results'>Aucun film ne correspond à vos critères.</p>";
+            return;
+        }
 
-        const selectedCountry = countrySelect.value;
         const classicThreshold = parseFloat(classicThresholdInput.value);
         const navetThreshold = parseFloat(navetThresholdInput.value);
 
-        classicValue.textContent = classicThreshold;
-        navetValue.textContent = navetThreshold;
-
         filteredFilms.forEach(film => {
-            console.log("Processing film with rowid:", film.id); // Debug ID type
-            if (selectedCountry !== "all" && film.origine !== selectedCountry) {
-                return;
-            }
-
             const imageSrc = film.lienImage ? film.lienImage : "img/default.jpg";
             const isMasterpiece = film.note >= classicThreshold;
             const isNavet = film.note <= navetThreshold;
 
             const filmCard = document.createElement("div");
             filmCard.classList.add("film-card");
-            filmCard.dataset.rowid = film.id; // Change to use rowid instead of nom
-            console.log("Created card with rowid:", film.id); // Debug log for rowid
+            filmCard.dataset.id = film.id;
 
-            // Ensure rowid is present and correct
-            if (!film.id) {
-                console.error("Film missing rowid:", film);
-            }
-
-            // Update the delete button creation to use supprimerFilm function
-            const deleteButton = `<button class="delete-button" data-rowid="${film.id}" onclick="supprimerFilm(${film.id})">🗑️ Delete</button>`;
+            // Create delete button
+            const deleteButton = `<button class="delete-button" data-id="${film.id}">🗑️ Delete</button>`;
 
             if (isNavet) {
                 filmCard.classList.add("navet");
@@ -65,6 +68,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     <p><strong>Réalisateur :</strong> ${film.realisateur}</p>
                     <p><strong>Note :</strong> ${film.note}</p>
                     <p><strong>Compagnie :</strong> ${film.compagnie}</p>
+                    <p><strong>Origine :</strong> ${film.origine || "Non spécifiée"}</p>
                     <p>${film.description}</p>
                     <p class="masterpiece-text">Un chef-d'œuvre incontournable</p>
                     ${deleteButton}
@@ -77,6 +81,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     <p><strong>Réalisateur :</strong> ${film.realisateur}</p>
                     <p><strong>Note :</strong> ${film.note}</p>
                     <p><strong>Compagnie :</strong> ${film.compagnie}</p>
+                    <p><strong>Origine :</strong> ${film.origine || "Non spécifiée"}</p>
                     <p>${film.description}</p>
                     ${deleteButton}
                 `;
@@ -85,54 +90,68 @@ document.addEventListener("DOMContentLoaded", function () {
             filmsContainer.appendChild(filmCard);
         });
 
-        // Update event listener for delete buttons
+        // Add event listeners to delete buttons
         document.querySelectorAll('.delete-button').forEach(button => {
             button.addEventListener('click', function() {
-                const rowid = this.getAttribute('data-rowid');
-                console.log("Delete clicked for rowid:", rowid, typeof rowid);
+                const filmId = this.getAttribute('data-id');
+                if (!filmId) return;
                 
-                if (!rowid) {
-                    console.error("Missing rowid on button:", button);
-                    return;
-                }
+                const filmCard = this.closest('.film-card');
+                if (filmCard) filmCard.classList.add('deleting');
                 
-                deleteFilm(rowid, this);
+                supprimerFilm(filmId);
             });
         });
     }
 
-    // Fonction pour importer les films depuis le serveur
+    // Fonction pour importer les films depuis le serveur avec des filtres
     function importFilms() {
-        fetch("/films")
+        const selectedCountry = countrySelect.value;
+        const selectedFilmType = filmTypeSelect.value;
+        const classicThreshold = parseFloat(classicThresholdInput.value);
+        const navetThreshold = parseFloat(navetThresholdInput.value);
+
+        // Construire l'URL avec les paramètres de filtrage
+        let url = "/films";
+        const params = [];
+
+        if (selectedCountry && selectedCountry !== "all") {
+            params.push(`origine=${selectedCountry}`);
+        }
+
+        if (selectedFilmType && selectedFilmType !== "all") {
+            params.push(`niveau=${selectedFilmType}`);
+        } else {
+            // Si aucun type spécifique n'est sélectionné, on n'envoie pas les seuils personnalisés
+            // Les seuils personnalisés seront appliqués côté client pour la coloration
+        }
+
+        // Ajouter les paramètres à l'URL s'il y en a
+        if (params.length > 0) {
+            url += "?" + params.join("&");
+        }
+        
+        console.log("Requête avec filtres:", url);
+
+        // Afficher un indicateur de chargement
+        filmsContainer.innerHTML = "<div class='loading'>Chargement des films...</div>";
+
+        fetch(url)
             .then(response => {
-                console.log("Response received:", response); // Log the response
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
             .then(films => {
-                console.log("Raw films data:", films); // Debug log to see the raw data
-                const selectedFilmType = filmTypeSelect.value;
-                const classicThreshold = parseFloat(classicThresholdInput.value);
-                const navetThreshold = parseFloat(navetThresholdInput.value);
-
-                filmsData = films.filter(film => film.note !== null);
-
-                if (selectedFilmType === "classics") {
-                    filteredFilms = filmsData.filter(film => film.note >= classicThreshold);
-                } else if (selectedFilmType === "navets") {
-                    filteredFilms = filmsData.filter(film => film.note <= navetThreshold);
-                } else {
-                    filteredFilms = filmsData;
-                }
-
-                console.log("Filtered films:", filteredFilms); // Debug log to see filtered data
+                console.log("Films reçus du serveur:", films);
+                filmsData = films;
+                filteredFilms = films;
                 updateFilmDisplay();
             })
             .catch(error => {
                 console.error("Erreur lors du chargement des films:", error);
-                filmsContainer.innerHTML = `<div class="error">Erreur de chargement des films.</div>`;
+                filmsContainer.innerHTML = `<div class="error">Erreur de chargement des films: ${error.message}</div>`;
             });
     }
 
@@ -173,6 +192,11 @@ document.addEventListener("DOMContentLoaded", function () {
         formData.forEach((value, key) => {
             filmData[key] = value;
         });
+        
+        // Ajouter l'origine si elle n'est pas spécifiée
+        if (!filmData.origine) {
+            filmData.origine = countrySelect.value !== 'all' ? countrySelect.value : 'France';
+        }
 
         fetch('/film', {
             method: 'POST',
@@ -205,7 +229,58 @@ document.addEventListener("DOMContentLoaded", function () {
         addFilmForm.style.display = 'none';
     });
 
-    importButton.addEventListener("click", importFilms);
-    countrySelect.addEventListener("change", updateFilmDisplay);
     addFilmForm.addEventListener("submit", addFilm);
+    
+    // Utiliser le bouton d'importation pour appliquer les filtres
+    importButton.addEventListener("click", importFilms);
+    
+    // Charger les films au démarrage
+    importFilms();
 });
+
+// Fonction pour afficher les films avec gestion améliorée des images et du texte
+function displayFilms(films) {
+    filmsContainer.innerHTML = "";
+    
+    if (films.length === 0) {
+        filmsContainer.innerHTML = "<p>Aucun film ne correspond à vos critères.</p>";
+        return;
+    }
+    
+    films.forEach(film => {
+        const filmCard = document.createElement("div");
+        filmCard.classList.add("film-card");
+        filmCard.dataset.rowid = film.id;
+
+        const imageUrl = film.lienImage ? film.lienImage : "img/default.jpg";
+        
+        filmCard.innerHTML = `
+            <h2>${film.nom || "Sans titre"}</h2>
+            <img src="${imageUrl}" alt="${film.nom}" onload="this.classList.add('loaded')">
+            <div class="film-details">
+                <p><strong>Réalisateur:</strong> <span>${film.realisateur || "Non spécifié"}</span></p>
+                <p><strong>Date:</strong> <span>${film.dateDeSortie || "Non spécifiée"}</span></p>
+                <p><strong>Note:</strong> <span>${film.note || "N/A"}/5</span></p>
+                <p><strong>Origine:</strong> <span>${film.origine || "Non spécifiée"}</span></p>
+            </div>
+            <p class="description">${film.description || "Aucune description disponible."}</p>
+            <button class="delete-button" data-id="${film.id}">Supprimer</button>
+        `;
+        
+        filmsContainer.appendChild(filmCard);
+    });
+    
+    // Add event listeners to delete buttons
+    document.querySelectorAll('.delete-button').forEach(button => {
+        button.addEventListener('click', function() {
+            const filmId = this.getAttribute('data-id');
+            if (!filmId) return;
+            
+            // Add a visual feedback
+            const filmCard = this.closest('.film-card');
+            if (filmCard) filmCard.classList.add('deleting');
+            
+            supprimerFilm(filmId);
+        });
+    });
+}

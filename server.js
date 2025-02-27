@@ -28,76 +28,9 @@ function initializeDatabase() {
             return;
         }
         
-        // If the table doesn't exist, create it and populate with data
+        // Si la table n'existe pas, exécuter initDB.js
         if (!row) {
-            console.log("Films table not found. Creating and populating it...");
-            
-            // Create the films table with auto-incremented ID
-            db.run(`
-                CREATE TABLE films (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nom TEXT NOT NULL,
-                    dateDeSortie TEXT,
-                    realisateur TEXT,
-                    note REAL,
-                    compagnie TEXT,
-                    description TEXT,
-                    lienImage TEXT,
-                    origine TEXT
-                )
-            `, (err) => {
-                if (err) {
-                    console.error("Error creating films table:", err);
-                    return;
-                }
-                
-                console.log("Films table created successfully");
-                
-                // Read the JSON file and insert data
-                try {
-                    const data = fs.readFileSync('./film.json', 'utf8');
-                    const films = JSON.parse(data);
-                    
-                    console.log(`Loading ${films.length} films into database...`);
-                    
-                    // Begin transaction
-                    db.run("BEGIN TRANSACTION");
-                    
-                    // Prepare the insert statement
-                    const stmt = db.prepare(`
-                        INSERT INTO films (nom, dateDeSortie, realisateur, note, compagnie, description, lienImage, origine)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    `);
-                    
-                    // Insert each film
-                    films.forEach((film) => {
-                        stmt.run(
-                            film.nom || '',
-                            film.dateDeSortie || '',
-                            film.realisateur || '',
-                            film.note || 0,
-                            film.compagnie || '',
-                            film.description || '',
-                            film.lienImage || '',
-                            film.origine || ''
-                        );
-                    });
-                    
-                    stmt.finalize();
-                    
-                    // Commit the transaction
-                    db.run("COMMIT", (err) => {
-                        if (err) {
-                            console.error("Error committing transaction:", err);
-                        } else {
-                            console.log("Database populated successfully");
-                        }
-                    });
-                    
-                } catch (err) {
-                    console.error("Error loading data from JSON:", err);
-                }
-            });
+            console.log("Films table not found. Please run initDB.js first.");
         } else {
             console.log("Films table already exists in database");
         }
@@ -108,14 +41,56 @@ function initializeDatabase() {
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Route to get all films
+// Route modifiée pour récupérer les films avec filtrage
 app.get('/films', (req, res) => {
-    db.all("SELECT * FROM films", [], (err, rows) => {
+    const origine = req.query.origine;
+    const niveau = req.query.niveau;
+    const noteMin = req.query.noteMin;
+    const noteMax = req.query.noteMax;
+    
+    console.log("Filtres reçus:", { origine, niveau, noteMin, noteMax });
+    
+    // Construire la requête SQL avec les filtres
+    let query = "SELECT id, * FROM films WHERE 1=1";
+    let params = [];
+    
+    // Filtrer par origine
+    if (origine && origine !== "all") {
+        query += " AND origine = ?";
+        params.push(origine);
+    }
+    
+    // Filtrer par note minimale
+    if (noteMin) {
+        query += " AND note >= ?";
+        params.push(parseFloat(noteMin));
+    }
+    
+    // Filtrer par note maximale
+    if (noteMax) {
+        query += " AND note <= ?";
+        params.push(parseFloat(noteMax));
+    }
+    
+    // Filtrer par niveau (Classic, Standard, Navet)
+    if (niveau) {
+        if (niveau === "classics") {
+            query += " AND note >= 4.0"; // Seuil pour les classiques
+        } else if (niveau === "navets") {
+            query += " AND note <= 2.0"; // Seuil pour les navets
+        } else if (niveau === "standard") {
+            query += " AND note > 2.0 AND note < 4.0"; // Films entre les deux seuils
+        }
+    }
+
+    console.log("SQL Query:", query, "with params:", params);
+    
+    db.all(query, params, (err, rows) => {
         if (err) {
             console.error('Error reading films:', err);
             return res.status(500).json({ error: 'Failed to read films' });
         }
-        console.log(`Retrieved ${rows.length} films`);
+        console.log(`Retrieved ${rows.length} films with filters`);
         res.json(rows);
     });
 });
@@ -126,7 +101,7 @@ app.post('/film', (req, res) => {
     
     db.run(`INSERT INTO films (nom, dateDeSortie, realisateur, note, compagnie, description, lienImage, origine) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
-        [nom, dateDeSortie, realisateur, note, compagnie, description, lienImage, origine], 
+        [nom, dateDeSortie, realisateur, note, compagnie, description, lienImage, origine || 'France'], 
         function(err) {
             if (err) {
                 console.error('Error adding film:', err);
@@ -150,7 +125,7 @@ app.delete('/film/:id', (req, res) => {
         
         if (this.changes === 0) {
             console.log(`No film found with ID: ${id}`);
-            return res.status(404).json({ error: 'Film not found' });
+            return res.json({ success: true, message: 'Film not found but no error occurred' });
         }
         
         console.log(`Successfully deleted film with ID: ${id}`);
