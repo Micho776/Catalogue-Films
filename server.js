@@ -112,6 +112,51 @@ app.post('/film', (req, res) => {
     );
 });
 
+// Route pour modifier un film existant
+app.put('/film/:id', (req, res) => {
+    const id = req.params.id;
+    const { nom, dateDeSortie, realisateur, note, compagnie, description, lienImage, origine } = req.body;
+    
+    console.log(`Attempting to update film with ID: ${id}`);
+    
+    db.run(`UPDATE films SET 
+            nom = ?, 
+            dateDeSortie = ?, 
+            realisateur = ?, 
+            note = ?, 
+            compagnie = ?, 
+            description = ?, 
+            lienImage = ?,
+            origine = ?
+            WHERE id = ?`, 
+        [
+            nom, 
+            dateDeSortie, 
+            realisateur, 
+            note, 
+            compagnie, 
+            description, 
+            lienImage, 
+            origine, 
+            id
+        ], 
+        function(err) {
+            if (err) {
+                console.error('Error updating film:', err);
+                return res.status(500).json({ error: 'Failed to update film' });
+            }
+            
+            if (this.changes === 0) {
+                console.log(`No film found with ID: ${id}`);
+                return res.status(404).json({ error: 'Film not found' });
+            }
+            
+            console.log(`Successfully updated film with ID: ${id}`);
+            res.json({ success: true, message: 'Film updated successfully' });
+        }
+    );
+});
+
 // Route to delete a film
 app.delete('/film/:id', (req, res) => {
     const id = req.params.id;

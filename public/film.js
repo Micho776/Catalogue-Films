@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     let filmsData = [];
     let filteredFilms = [];
+    let editingFilmId = null; // Variable pour stocker l'ID du film en cours d'édition
 
     // Mise à jour des valeurs affichées pour les seuils
     classicThresholdInput.addEventListener("input", function() {
@@ -48,8 +49,11 @@ document.addEventListener("DOMContentLoaded", function () {
             filmCard.classList.add("film-card");
             filmCard.dataset.id = film.id;
 
-            // Create delete button
-            const deleteButton = `<button class="delete-button" data-id="${film.id}">🗑️ Delete</button>`;
+            // Ajouter un bouton d'édition et un bouton de suppression
+            const editButton = `<button class="edit-button" data-id="${film.id}">✏️ Modifier</button>`;
+            const deleteButton = `<button class="delete-button" data-id="${film.id}">🗑️ Supprimer</button>`;
+            
+            const buttons = `<div class="film-buttons">${editButton} ${deleteButton}</div>`;
 
             if (isNavet) {
                 filmCard.classList.add("navet");
@@ -57,7 +61,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     <img src="${imageSrc}" alt="${film.nom}">
                     <h2>${film.nom}</h2>
                     <p class="navet-text">Ne vaut même pas la peine</p>
-                    ${deleteButton}
+                    ${buttons}
                 `;
             } else if (isMasterpiece) {
                 filmCard.classList.add("masterpiece");
@@ -71,7 +75,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     <p><strong>Origine :</strong> ${film.origine || "Non spécifiée"}</p>
                     <p>${film.description}</p>
                     <p class="masterpiece-text">Un chef-d'œuvre incontournable</p>
-                    ${deleteButton}
+                    ${buttons}
                 `;
             } else {
                 filmCard.innerHTML = `
@@ -83,14 +87,14 @@ document.addEventListener("DOMContentLoaded", function () {
                     <p><strong>Compagnie :</strong> ${film.compagnie}</p>
                     <p><strong>Origine :</strong> ${film.origine || "Non spécifiée"}</p>
                     <p>${film.description}</p>
-                    ${deleteButton}
+                    ${buttons}
                 `;
             }
 
             filmsContainer.appendChild(filmCard);
         });
 
-        // Add event listeners to delete buttons
+        // Ajouter des écouteurs d'événements pour les boutons de suppression
         document.querySelectorAll('.delete-button').forEach(button => {
             button.addEventListener('click', function() {
                 const filmId = this.getAttribute('data-id');
@@ -100,6 +104,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (filmCard) filmCard.classList.add('deleting');
                 
                 supprimerFilm(filmId);
+            });
+        });
+        
+        // Ajouter des écouteurs d'événements pour les boutons d'édition
+        document.querySelectorAll('.edit-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const filmId = this.getAttribute('data-id');
+                if (!filmId) return;
+                
+                editFilm(filmId);
             });
         });
     }
@@ -184,8 +198,46 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Fonction pour ajouter un film
-    function addFilm(event) {
+    // Fonction pour pré-remplir le formulaire avec les données du film à éditer
+    function editFilm(filmId) {
+        // Trouver le film dans les données
+        const film = filteredFilms.find(f => f.id == filmId);
+        if (!film) {
+            console.error("Film non trouvé avec l'ID:", filmId);
+            return;
+        }
+        
+        // Stocker l'ID du film en cours d'édition
+        editingFilmId = filmId;
+        
+        // Changer le titre du formulaire et le texte du bouton
+        document.getElementById("formTitle").textContent = "Modifier un film";
+        document.getElementById("submitButton").textContent = "Enregistrer les modifications";
+        
+        // Pré-remplir le formulaire avec les données du film
+        document.getElementById("nom").value = film.nom || "";
+        document.getElementById("dateDeSortie").value = film.dateDeSortie || "";
+        document.getElementById("realisateur").value = film.realisateur || "";
+        document.getElementById("note").value = film.note || "";
+        document.getElementById("compagnie").value = film.compagnie || "";
+        document.getElementById("description").value = film.description || "";
+        document.getElementById("lienImage").value = film.lienImage || "";
+        
+        // Sélectionner l'origine
+        const origineSelect = document.getElementById("origine");
+        for (let i = 0; i < origineSelect.options.length; i++) {
+            if (origineSelect.options[i].value === film.origine) {
+                origineSelect.selectedIndex = i;
+                break;
+            }
+        }
+        
+        // Afficher le formulaire
+        addFilmForm.style.display = 'block';
+    }
+
+    // Fonction modifiée pour ajouter ou mettre à jour un film
+    function submitFilmForm(event) {
         event.preventDefault();
         const formData = new FormData(addFilmForm);
         const filmData = {};
@@ -197,39 +249,73 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!filmData.origine) {
             filmData.origine = countrySelect.value !== 'all' ? countrySelect.value : 'France';
         }
+        
+        if (editingFilmId) {
+            // Mode édition - envoi d'une requête PUT
+            fetch(`/film/${editingFilmId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(filmData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    importFilms();
+                    resetForm();
+                } else {
+                    alert('Échec de la mise à jour du film');
+                }
+            })
+            .catch(error => {
+                console.error("Erreur lors de la mise à jour du film:", error);
+                alert('Échec de la mise à jour du film');
+            });
+        } else {
+            // Mode ajout - envoi d'une requête POST
+            fetch('/film', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(filmData)
+            })
+            .then(response => {
+                if (response.ok) {
+                    importFilms();
+                    resetForm();
+                } else {
+                    alert('Échec de l\'ajout du film');
+                }
+            })
+            .catch(error => {
+                console.error("Erreur lors de l'ajout du film:", error);
+                alert('Échec de l\'ajout du film');
+            });
+        }
+    }
 
-        fetch('/film', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(filmData)
-        })
-        .then(response => {
-            if (response.ok) {
-                importFilms();
-                addFilmForm.reset();
-                addFilmForm.style.display = 'none';
-            } else {
-                alert('Failed to add film');
-            }
-        })
-        .catch(error => {
-            console.error("Erreur lors de l'ajout du film:", error);
-            alert('Failed to add film');
-        });
+    // Fonction pour réinitialiser le formulaire
+    function resetForm() {
+        editingFilmId = null;
+        document.getElementById("formTitle").textContent = "Ajouter un nouveau film";
+        document.getElementById("submitButton").textContent = "Ajouter le film";
+        addFilmForm.reset();
+        addFilmForm.style.display = 'none';
     }
 
     // Écouteurs d'événements
     addFilmButton.addEventListener("click", () => {
+        resetForm();
         addFilmForm.style.display = 'block';
     });
 
     cancelButton.addEventListener("click", () => {
-        addFilmForm.style.display = 'none';
+        resetForm();
     });
 
-    addFilmForm.addEventListener("submit", addFilm);
+    // Remplacer l'événement d'écoute du formulaire par notre nouvelle fonction
+    addFilmForm.addEventListener("submit", submitFilmForm);
     
     // Utiliser le bouton d'importation pour appliquer les filtres
     importButton.addEventListener("click", importFilms);
