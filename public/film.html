@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Films</title>
+    <link rel="stylesheet" href="film.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <h1>Films Célèbres</h1>
+
+    <div class="filters">
+      <!-- Liste déroulante pour filtrer par pays -->
+      <label for="countrySelect">🌍 Pays :</label>
+      <select id="countrySelect">
+        <option value="all">TOUS</option>
+        <option value="France">France</option>
+        <option value="Angleterre">Angleterre</option>
+        <option value="Belgique">Belgique</option>
+        <option value="Pays-Bas">Pays-Bas</option>
+      </select>
+
+      <!-- Liste déroulante pour sélectionner le type de films -->
+      <label for="filmTypeSelect">🎥 Type :</label>
+      <select id="filmTypeSelect">
+        <option value="all">Tous les films</option>
+        <option value="classics">Les classiques</option>
+        <option value="navets">Les navets</option>
+      </select>
+    </div>
+
+    <div class="sliders">
+      <label for="classicThreshold">🌟 Seuil Classic :</label>
+      <input
+        type="range"
+        id="classicThreshold"
+        value="4.2"
+        min="0"
+        max="5"
+        step="0.1"
+      />
+      <span id="classicValue">4.2</span>
+
+      <label for="navetThreshold">🍅 Seuil Navet :</label>
+      <input
+        type="range"
+        id="navetThreshold"
+        value="2.0"
+        min="0"
+        max="5"
+        step="0.1"
+      />
+      <span id="navetValue">2.0</span>
+    </div>
+
+    <button id="importButton">🎬 Charger les Films</button>
+
+    <div class="films-container" id="filmsContainer">
+      <!-- Film cards will be dynamically inserted here -->
+    </div>
+
+    <button id="addFilmButton" class="add-film-button">+</button>
+
+    <form id="addFilmForm" style="display: none">
+      <label for="nom">Nom:</label>
+      <input type="text" id="nom" name="nom" required />
+
+      <label for="dateDeSortie">Date de sortie:</label>
+      <input type="text" id="dateDeSortie" name="dateDeSortie" required />
+
+      <label for="realisateur">Réalisateur:</label>
+      <input type="text" id="realisateur" name="realisateur" required />
+
+      <label for="note">Note:</label>
+      <input
+        type="number"
+        id="note"
+        name="note"
+        step="0.1"
+        min="0"
+        max="5"
+        required
+      />
+
+      <label for="compagnie">Compagnie:</label>
+      <input type="text" id="compagnie" name="compagnie" required />
+
+      <label for="description">Description:</label>
+      <textarea id="description" name="description"></textarea>
+
+      <label for="lienImage">Lien de l'image:</label>
+      <input type="text" id="lienImage" name="lienImage" required />
+
+      <button type="submit">Ajouter le film</button>
+      <button type="button" class="cancel-button">Annuler</button>
+    </form>
+
+    <script>
+      function supprimerFilm(id) {
+        fetch(`/film/${id}`, { method: "DELETE" })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log("Film supprimé :", data);
+            // Refresh the films display
+            importFilms();
+          })
+          .catch((error) => console.error("Erreur de suppression :", error));
+      }
+    </script>
+
+    <script src="film.js"></script>
+  </body>
+</html>

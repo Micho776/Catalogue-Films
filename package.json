@@ -1,0 +1,14 @@
+{
+  "name": "projet_final",
+  "version": "1.0.0",
+  "description": "Projet final avec front-end et back-end",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "express": "^4.21.2",
+    "sqlite3": "^5.1.7"
+  }
+}
